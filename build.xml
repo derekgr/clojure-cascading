@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="clojure-cascading" default="jar" basedir=".">
+  <description>A library of functions and macros to work with cascading more
+  abstractly.</description>
+
+  <property name="src" location="src" />
+  <property name="build" location="build" />
+  <property name="dist" location="dist" />
+  <property name="jar" location="${dist}/clojure-cascading.jar" />
+  <property environment="env" />
+  <property name="hadoop.home" value="${env.HADOOP_HOME}" />
+  <property name="clojure.home" value="${env.CLOJURE_HOME}" />
+  <property name="cascading.home" value="${env.CASCADING_HOME}" />
+
+  <path id="deps">
+    <fileset dir="${hadoop.home}">
+      <include name="hadoop-*.jar"/>
+      <include name="lib/**/*.jar"/>
+    </fileset>
+    <fileset dir="${clojure.home}">
+      <include name="clojure-*.jar" />
+    </fileset>
+    <fileset dir="${cascading.home}">
+      <include name="cascading-*.jar" />
+      <include name="cascading/**/*.jar"/>
+    </fileset>
+  </path>
+
+  <target name="init">
+    <mkdir dir="${build}" />
+  </target>
+
+  <target name="compile" depends="init">
+    <javac srcdir="${src}" destdir="${build}" debug="on">
+      <classpath>
+        <path refid="deps" />
+      </classpath>
+    </javac>
+    <copy todir="${build}">
+      <fileset dir="${src}" includes="**/*.properties" />
+      <fileset dir="${src}" includes="**/*.txt" />
+    </copy>
+  </target>
+
+  <target name="compile-clojure" depends="init">
+    <fileset id="clojure.source" dir="${src}/clojure" includes="**/*.clj">
+      <depend targetdir="${build}">
+        <mapper type="glob" from="*.clj" to="*__init.class" />
+      </depend>
+    </fileset>
+    <pathconvert targetos="unix" pathsep=" " property="clojure.namespaces" refid="clojure.source">
+      <chainedmapper>
+        <filtermapper> 
+          <replacestring from="\" to="/"/>
+          <replacestring from="_" to="-"/>
+          <replacestring from="${src}/clojure/" to="" />
+        </filtermapper>
+        <packagemapper from="*.clj" to="*" />
+      </chainedmapper>
+    </pathconvert>
+
+    <java classname="clojure.lang.Compile" fork="true" failonerror="true">
+      <sysproperty key="clojure.compile.path" value="${build}" />
+      <classpath>
+        <path refid="deps" />
+        <pathelement location="${build}" />
+        <pathelement location="${src}/clojure" />
+      </classpath>
+      <arg line="${clojure.namespaces}" />
+    </java>
+  </target>
+
+  <target name="jar" depends="compile, compile-clojure">
+    <mkdir dir="${dist}" />
+
+    <jar jarfile="${jar}" basedir="${build}" />
+  </target>
+
+  <target name="clean">
+    <delete dir="${build}" />
+    <delete dir="${dist}" />
+  </target>
+</project>
